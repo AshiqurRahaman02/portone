@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"strings"
 	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
@@ -71,32 +72,53 @@ func TestConfirmIntentHandler(t *testing.T) {
 		t.Fatalf("Error loading .env file: %s", err)
 	}
 
-	intentID := "pi_3OcssqSJhfkaql8D04yP3W8X"
-	requestURL := ts.URL + "/api/v1/confirm_payment_intent/" + intentID
-	req, err := http.NewRequest("POST", requestURL, nil)
+	// Create a new payment intent
+	createIntentURL := ts.URL + "/api/v1/create_intent"
+	createIntentReq, err := http.NewRequest("POST", createIntentURL, strings.NewReader(`{"amount": 2000, "currency": "usd"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	createIntentRR := httptest.NewRecorder()
+	createIntentHandler := http.HandlerFunc(payment.CreateIntentHandler)
+	createIntentHandler.ServeHTTP(createIntentRR, createIntentReq)
+
+	assert.Equal(t, http.StatusOK, createIntentRR.Code)
+
+	var createIntentResponse map[string]interface{}
+	err = json.Unmarshal(createIntentRR.Body.Bytes(), &createIntentResponse)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Use the created intent's ID for confirmation
+	intentID := createIntentResponse["payment_intent_id"].(string)
+
+	confirmIntentURL := ts.URL + "/api/v1/confirm_payment_intent/" + intentID
+	confirmIntentReq, err := http.NewRequest("POST", confirmIntentURL, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	vars := map[string]string{"id": intentID}
-	req = mux.SetURLVars(req, vars)
+	confirmIntentReq = mux.SetURLVars(confirmIntentReq, vars)
 
-	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(payment.ConfirmIntentHandler)
-	handler.ServeHTTP(rr, req)
+	confirmIntentRR := httptest.NewRecorder()
+	confirmIntentHandler := http.HandlerFunc(payment.ConfirmIntentHandler)
+	confirmIntentHandler.ServeHTTP(confirmIntentRR, confirmIntentReq)
 
-	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, http.StatusOK, confirmIntentRR.Code)
 
-	var response map[string]interface{}
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	var confirmIntentResponse map[string]interface{}
+	err = json.Unmarshal(confirmIntentRR.Body.Bytes(), &confirmIntentResponse)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assert.True(t, response["success"].(bool))
-	assert.Equal(t, intentID, response["payment_intent_id"])
-	assert.Equal(t, "requires_action", response["status"])
-	assert.NotNil(t, response["client_secret"])
+	assert.True(t, confirmIntentResponse["success"].(bool))
+	assert.Equal(t, intentID, confirmIntentResponse["payment_intent_id"])
+	assert.Equal(t, "requires_action", confirmIntentResponse["status"])
+	assert.NotNil(t, confirmIntentResponse["client_secret"])
 }
 
 func TestGetIntentsHandler(t *testing.T) {

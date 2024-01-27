@@ -79,7 +79,12 @@ func ConfirmIntentHandler(w http.ResponseWriter, r *http.Request) {
 
 	if intent.Status != "requires_confirmation" {
 		errorMessage := fmt.Sprintf("PaymentIntent cannot be captured in its current state, State: %s", intent.Status)
-		http.Error(w, errorMessage, http.StatusBadRequest)
+		response := map[string]interface{}{
+			"success": false,
+			"message": errorMessage,
+		}
+		jsonResponse, _ := json.Marshal(response)
+		http.Error(w, string(jsonResponse), http.StatusBadRequest)
 		return
 	}
 
@@ -119,7 +124,12 @@ func CaptureIntentHandler(w http.ResponseWriter, r *http.Request) {
 
 	if intent.Status != "requires_capture" {
 		errorMessage := fmt.Sprintf("PaymentIntent cannot be captured in its current state, State: %s", intent.Status)
-		http.Error(w, errorMessage, http.StatusBadRequest)
+		response := map[string]interface{}{
+			"success": false,
+			"message": errorMessage,
+		}
+		jsonResponse, _ := json.Marshal(response)
+		http.Error(w, string(jsonResponse), http.StatusBadRequest)
 		return
 	}
 
@@ -157,8 +167,13 @@ func CreateRefundHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if intent.Status != "succeeded" {
-		errorMessage := fmt.Sprintf("PaymentIntent cannot be refunded in its current state, State: %s", intent.Status)
-		http.Error(w, errorMessage, http.StatusBadRequest)
+		errorMessage := fmt.Sprintf("PaymentIntent cannot be captured in its current state, State: %s", intent.Status)
+		response := map[string]interface{}{
+			"success": false,
+			"message": errorMessage,
+		}
+		jsonResponse, _ := json.Marshal(response)
+		http.Error(w, string(jsonResponse), http.StatusBadRequest)
 		return
 	}
 
